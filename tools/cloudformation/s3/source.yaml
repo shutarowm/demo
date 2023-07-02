@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: S3 for CodePipeline Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+  SourceS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub ${AWS::AccountId}-${ProjectName}-source
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-s3-source
+
+Outputs:
+  SourceS3Name:
+    Value: !Ref SourceS3
+    Export:
+      Name: !Sub s3-${ProjectName}-source-name
+  SourceS3Arn:
+    Value: !GetAtt SourceS3.Arn
+    Export:
+      Name: !Sub s3-${ProjectName}-source-arn

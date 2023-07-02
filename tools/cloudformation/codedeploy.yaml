@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: CodeDeploy Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub ${ProjectName}-application
+      ComputePlatform: Server
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-application
+
+  CodeDeployGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+      DeploymentConfigName: CodeDeployDefault.AllAtOnce
+      DeploymentGroupName: !Sub ${ProjectName}-deployment-group
+      Ec2TagFilters:
+        - Key: Name
+          Type: KEY_AND_VALUE
+          Value: !Sub ${ProjectName}-ec2
+      ServiceRoleArn: !Join
+        - ""
+        - - Fn::ImportValue: !Sub "iam-role-${ProjectName}-codedeploy-arn"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-deployment-group
+
+Outputs:
+  CodeDeployApplicationName:
+    Value: !Ref CodeDeployApplication
+    Export:
+      Name: !Sub codedeploy-application-${ProjectName}-name
+
+  CodeDeployGroupName:
+    Value: !Ref CodeDeployGroup
+    Export:
+      Name: !Sub codedeploy-group-${ProjectName}-name

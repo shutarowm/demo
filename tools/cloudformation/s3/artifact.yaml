@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: S3 for CodePipeline Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+  ArtifactS3:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: !Sub ${AWS::AccountId}-${ProjectName}-artifact
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-s3-artifact
+
+Outputs:
+  ArtifactS3Name:
+    Value: !Ref ArtifactS3
+    Export:
+      Name: !Sub s3-${ProjectName}-artifact-name
+  ArtifactS3Arn:
+    Value: !GetAtt ArtifactS3.Arn
+    Export:
+      Name: !Sub s3-${ProjectName}-artifact-arn

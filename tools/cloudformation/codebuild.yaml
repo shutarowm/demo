@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: CodeBuild Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Description: !Sub CodeBuild Project for ${ProjectName}
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:4.0
+        Type: LINUX_CONTAINER
+      Name: !Sub ${ProjectName}-codebuild-project
+      ServiceRole: !Join
+        - ""
+        - - Fn::ImportValue: !Sub "iam-role-${ProjectName}-codebuild-arn"
+      Source:
+        BuildSpec: buildspec.yml
+        Type: CODEPIPELINE
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-codebuild-project
+
+Outputs:
+  CodeBuildProjectname:
+    Value: !Ref CodeBuild
+    Export:
+      Name: !Sub codebuild-project-${ProjectName}-name
+
+  CodeBuildProjectARN:
+    Value: !GetAtt CodeBuild.Arn
+    Export:
+      Name: !Sub codebuild-project-${ProjectName}-arn

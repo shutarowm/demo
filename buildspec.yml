@@ -1,0 +1,40 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+  pre_build:
+    commands:
+      - echo start pre build.
+
+      # check java version
+      - java -version
+
+      - echo finish pre build.
+  build:
+    commands:
+      - echo start build.
+
+      # build using gradlew
+      - chmod 755 ./gradlew
+      - ./gradlew build -x test
+
+      - echo finish build.
+  post_build:
+    commands:
+      - echo start post build.
+
+      # copy jar to artifacts
+      - mkdir artifacts
+      - cp build/libs/demo-0.0.1-SNAPSHOT.jar artifacts
+
+      # copy files for deploy
+      - cp -rT deploy artifacts
+      - echo finish post build.
+artifacts:
+  files:
+    - demo-0.0.1-SNAPSHOT.jar
+    - appspec.yml
+    - scripts/*
+  base-directory: artifacts

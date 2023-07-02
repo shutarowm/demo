@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: IAM for CI/CD Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+
+Parameters:
+  ProjectName:
+    Type: String
+
+Resources:
+  EC2IAMPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:GetObject"
+              - "s3:ListBucket"
+            Resource:
+              - !Join
+                - ""
+                - - Fn::ImportValue: !Sub "s3-${ProjectName}-artifact-arn"
+                  - "/*"
+              - Fn::ImportValue: !Sub "s3-${ProjectName}-artifact-arn"
+      ManagedPolicyName: !Sub ${ProjectName}-deploy-ec2-iam-policy
+
+  EC2IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - !Ref EC2IAMPolicy
+      RoleName: !Sub ${ProjectName}-ec2-iam-role
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-ec2-iam-role
+
+  EC2IAMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub ${ProjectName}-ec2-iam-instanceprofile
+      Roles:
+        - !Ref EC2IAMRole
+
+  CodeBuildIAMPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:PutObject"
+              - "s3:GetObject"
+            Resource:
+              - !Join
+                - ""
+                - - Fn::ImportValue: !Sub "s3-${ProjectName}-artifact-arn"
+                  - "/*"
+              - !Join
+                - ""
+                - - Fn::ImportValue: !Sub "s3-${ProjectName}-source-arn"
+                  - "/*"
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: "*"
+      ManagedPolicyName: !Sub ${ProjectName}-codebuild-iam-policy
+
+  CodeBuildIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref CodeBuildIAMPolicy
+      RoleName: !Sub ${ProjectName}-codebuild-iam-role
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-codebuild-iam-role
+
+  CodeDeployIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codedeploy.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole
+      RoleName: !Sub ${ProjectName}-codedeploy-iam-role
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-codedeploy-iam-role
+
+  CodePipelineIAMPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "codebuild:BatchGetBuilds"
+              - "codebuild:StartBuild"
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+              - "codedeploy:CreateDeployment"
+              - "codedeploy:GetApplication"
+              - "codedeploy:GetApplicationRevision"
+              - "codedeploy:GetDeployment"
+              - "codedeploy:GetDeploymentConfig"
+              - "codedeploy:RegisterApplicationRevision"
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:ListBucket"
+              - "s3:GetBucketVersioning"
+              - "s3:PutBucketVersioning"
+              - "s3:GetObjectVersion"
+            Resource:
+              - !Join
+                - ""
+                - - Fn::ImportValue: !Sub "s3-${ProjectName}-artifact-arn"
+                  - "/*"
+              - Fn::ImportValue: !Sub "s3-${ProjectName}-artifact-arn"
+              - !Join
+                - ""
+                - - Fn::ImportValue: !Sub "s3-${ProjectName}-source-arn"
+                  - "/*"
+              - Fn::ImportValue: !Sub "s3-${ProjectName}-source-arn"
+      ManagedPolicyName: !Sub ${ProjectName}-codepipeline-iam-policy
+
+  CodePipelineIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codepipeline.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref CodePipelineIAMPolicy
+      RoleName: !Sub ${ProjectName}-codepipeline-iam-role
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-codepipeline-iam-role
+
+Outputs:
+  EC2IAMInstanceProfileName:
+    Value: !Ref EC2IAMInstanceProfile
+    Export:
+      Name: !Sub iam-instanceprofile-${ProjectName}-ec2-name
+
+  CodeBuildIAMRoleARN:
+    Value: !GetAtt CodeBuildIAMRole.Arn
+    Export:
+      Name: !Sub iam-role-${ProjectName}-codebuild-arn
+
+  CodeDeployIAMRoleARN:
+    Value: !GetAtt CodeDeployIAMRole.Arn
+    Export:
+      Name: !Sub iam-role-${ProjectName}-codedeploy-arn
+
+  CodePipelineIAMRoleARN:
+    Value: !GetAtt CodePipelineIAMRole.Arn
+    Export:
+      Name: !Sub iam-role-${ProjectName}-codepipeline-arn

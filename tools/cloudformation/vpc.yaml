@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Simple Pubic Network Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+      - Label:
+          default: Parameters for VPC
+        Parameters:
+          - VPCCIDR
+      - Label:
+          default: Parameters for Subnet
+        Parameters:
+          - PublicSubnet01CIDR
+
+Parameters:
+  ProjectName:
+    Type: String
+  VPCCIDR:
+    Default: 192.168.0.0/16
+    Type: String
+  PublicSubnet01CIDR:
+    Default: 192.168.1.0/24
+    Type: String
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet01:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      CidrBlock: !Ref PublicSubnet01CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-subnet-01
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-public-rtb
+
+  PublicRouteTableRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicRtAssociation1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet01
+
+Outputs:
+  VPCId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub vpc-${ProjectName}-id
+  PublicSubnet01Id:
+    Value: !Ref PublicSubnet01
+    Export:
+      Name: !Sub public-subnet-${ProjectName}-01-id

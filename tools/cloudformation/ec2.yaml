@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Spring Server Stack
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Parameters for Service
+        Parameters:
+          - ProjectName
+      - Label:
+          default: Parameters for ec2
+        Parameters:
+          - EC2VolumeSize
+          - EC2VolumeIOPS
+          - EC2AMI
+          - EC2InstanceType
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  EC2VolumeSize:
+    Default: 32
+    Type: Number
+
+  EC2VolumeIOPS:
+    Default: 3000
+    Type: Number
+
+  EC2AMI:
+    Default: ami-07c2a88388bb80eb0
+    Type: AWS::EC2::Image::Id
+
+  EC2InstanceType:
+    Default: t2.micro
+    Type: String
+
+Resources:
+  EC2SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: for ec2
+      GroupName: !Sub ${ProjectName}-sg-ec2
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: -1
+          IpProtocol: -1
+          ToPort: -1
+      SecurityGroupIngress:
+        - FromPort: 80
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          ToPort: 80
+        - FromPort: 22
+          IpProtocol: tcp
+          CidrIp: 0.0.0.0/0
+          ToPort: 22
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-sg-ec2
+      VpcId: !Join
+        - ""
+        - - Fn::ImportValue: !Sub "vpc-${ProjectName}-id"
+
+  EC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            DeleteOnTermination: true
+            Encrypted: true
+            Iops: !Ref EC2VolumeIOPS
+            VolumeSize: !Ref EC2VolumeSize
+            VolumeType: gp3
+      DisableApiTermination: false
+      IamInstanceProfile: !Join
+        - ""
+        - - Fn::ImportValue: !Sub "iam-instanceprofile-${ProjectName}-ec2-name"
+      ImageId: !Ref EC2AMI
+      InstanceType: !Ref EC2InstanceType
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref EC2SG
+          SubnetId: !Join
+            - ""
+            - - Fn::ImportValue: !Sub "public-subnet-${ProjectName}-01-id"
+      Tags:
+        - Key: Name
+          Value: !Sub ${ProjectName}-ec2
+      UserData: !Base64 |
+        #!/bin/bash
+        yum update -y
+        yum install ruby -y
+        wget https://aws-codedeploy-ap-northeast-1.s3.ap-northeast-1.amazonaws.com/latest/install
+        chmod +x ./install
+        ./install auto
+        service codedeploy-agent start
+
+        sudo yum install -y java-17-amazon-corretto
+        java -version
